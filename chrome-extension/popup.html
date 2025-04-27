@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Audio Summarizer</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎙️ Audio Summarizer</h1>
+        <button id="openSettings" class="icon-button" title="Settings">⚙️</button>
+      </header>
+
+      <button id="toggleRecording" class="primary-button">⏺️ Start / Stop Recording</button>
+
+      <div class="queue">
+        <h3>📂 Processing Queue</h3>
+        <ul id="queue-list"></ul>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
