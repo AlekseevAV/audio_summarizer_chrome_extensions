@@ -57,57 +57,39 @@ const approxCharsPerToken = 2;
 const chunkSize = maxTokens * approxCharsPerToken;
 
 export async function summarizeText(text, prompt, token) {
-  const chunks = splitTextIntoChunks(text, chunkSize);
-  let summaries = [];
+  const systemMessage = {
+    role: "system",
+    content: prompt || "Summarize the following text clearly and concisely.",
+  };
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const systemMessage = {
-      role: "system",
-      content: prompt || "Summarize the following text clearly and concisely.",
-    };
+  const userMessage = {
+    role: "user",
+    content: text,
+  };
 
-    const userMessage = {
-      role: "user",
-      content: chunk,
-    };
+  const payload = {
+    model: "gpt-4.1",
+    messages: [systemMessage, userMessage],
+    temperature: 0.5,
+  };
 
-    const payload = {
-      model: "gpt-4",
-      messages: [systemMessage, userMessage],
-      temperature: 0.5,
-    };
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+  const result = await response.json();
 
-    const result = await response.json();
-
-    if (!response.ok || !result.choices?.[0]?.message?.content) {
-      console.error("OpenAI Error in chunk", i, result);
-      throw new Error("Failed to generate summary for chunk");
-    }
-
-    summaries.push(result.choices[0].message.content.trim());
+  if (!response.ok || !result.choices?.[0]?.message?.content) {
+    console.error("OpenAI Error in chunk", i, result);
+    throw new Error("Failed to generate summary for chunk");
   }
 
-  // Final summary of all chunks
-  let finalSummary = "";
-  if (summaries.length === 1) {
-    finalSummary = summaries[0];
-  } else {
-    finalSummary = await summarizeText(
-      summaries.join("\n\n"),
-      `Concatenate the following summaries created by this prompt (keep the language and style of the original summaries): ${prompt}`,
-      token,
-    );
-  }
+  let finalSummary = result.choices[0].message.content.trim();
 
   return finalSummary;
 }
