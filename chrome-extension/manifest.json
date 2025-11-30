@@ -9,7 +9,6 @@
     "activeTab",
     "tabs",
     "windows",
-    "scripting",
     "storage"
   ],
   "host_permissions": ["*://meet.google.com/*", "http://127.0.0.1:8995/"],
