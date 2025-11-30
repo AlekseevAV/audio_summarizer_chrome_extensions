@@ -62,11 +62,30 @@ async function startRecording(streamId) {
     video: false,
   });
 
+  // Find default microphone and get its stream.
+  const micDevice = await navigator.mediaDevices
+    .enumerateDevices()
+    .then((devices) => {
+      return devices.find(
+        (device) =>
+          device.kind === "audioinput" &&
+          device.label.toLowerCase().includes("default"),
+      );
+    });
+  if (!micDevice) {
+    throw new Error("Default microphone not found");
+  } else {
+    console.log("Default microphone found:", micDevice.label);
+  }
+
   micStream = await navigator.mediaDevices.getUserMedia({
-    audio: true,
+    audio: {
+      deviceId: {
+        exact: micDevice.deviceId,
+      },
+    },
     video: false,
   });
-  console.log("Microphone stream captured:", micStream);
 
   // Continue to play the captured audio to the user.
   const output = new AudioContext();
@@ -84,6 +103,7 @@ async function startRecording(streamId) {
   micSource.connect(destination);
 
   combinedStream = destination.stream;
+  console.log("Combined stream created:", combinedStream);
 
   // Start recording.
   startChunkRecordingLoop(streamId);
