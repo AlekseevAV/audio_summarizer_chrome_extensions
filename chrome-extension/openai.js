@@ -52,9 +52,6 @@ function splitTextIntoChunks(text, size) {
 }
 
 const apiUrl = "https://api.openai.com/v1/chat/completions";
-const maxTokens = 8000;
-const approxCharsPerToken = 2;
-const chunkSize = maxTokens * approxCharsPerToken;
 
 export async function summarizeText(text, prompt, token) {
   const systemMessage = {
