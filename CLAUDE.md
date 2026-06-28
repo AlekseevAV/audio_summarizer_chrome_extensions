@@ -47,14 +47,22 @@ Message router and owner of the recording session lifecycle.
 ### `offscreen/` - offscreen document (audio capture + WebSocket to OpenAI)
 Needed because the service worker has no access to Web Audio / getUserMedia.
 - `recording.js` - the core: grabs the tab stream by `streamId`, the microphone
-  (looks for a device whose label contains "default"), mixes them through an
+  (`deviceId === "default"` + label fallback), mixes them through an
   `AudioContext` (sampleRate 24000), opens the WebSocket, starts PCM streaming.
-  Also plays the tab audio to the speakers (monitoring).
+  Also plays the tab audio to the speakers (monitoring). Start/stop are
+  serialized through an op queue (`enqueue`) so overlapping messages cannot run
+  two pipelines at once. On an unexpected socket close it auto-reconnects with
+  backoff (`scheduleReconnect`/`doReconnect`, up to `MAX_RECONNECT_ATTEMPTS`)
+  without rebuilding the audio graph - this is what keeps long calls (past the
+  Realtime session limit) going. `teardownResources` is the single shared
+  cleanup path (tracks, worklet handler, socket, contexts fire-and-forget).
 - `websocket.js` - connects to `wss://api.openai.com/v1/realtime?intent=transcription`,
   configures the session (transcription model, `semantic_vad`), forwards all events
-  back as `TRANSCRIPTION_EVENT`.
+  back as `TRANSCRIPTION_EVENT`. Resolves on open, rejects on close-before-open;
+  `onClose` (steady-state drops only) drives the reconnect decision.
 - `audio.js` - PCM streaming: float32 -> PCM16 -> base64, sends
-  `input_audio_buffer.append` to the WebSocket.
+  `input_audio_buffer.append`. Resolves the live socket per chunk (so reconnects
+  retarget transparently) and applies backpressure via `ws.bufferedAmount`.
 - `pcm-processor.js` - AudioWorkletProcessor (loaded by URL, not bundled).
 - `state.js` - `currentSession` (ws, contexts, streams, workletNode).
 - mute from content arrives as `MIC_MUTE_CHANGE` and toggles the mic `track.enabled`.
@@ -94,6 +102,8 @@ Loaded as an iframe inside the Meet page with `tabId` in the URL.
 ### `shared/message-types.js`
 Single source of truth for message types: `MESSAGE_TYPES`, `MESSAGE_SOURCES`,
 `MESSAGE_TARGETS`. Used across all contexts. Adding a new message -> edit here.
+`CONNECTION_STATUS` (offscreen -> background -> panel) reports reconnect state
+(`reconnecting`/`reconnected`) so the panel can show it without flipping `isRecording`.
 
 ## Data flow (record -> result)
 

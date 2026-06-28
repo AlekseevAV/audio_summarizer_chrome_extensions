@@ -10,6 +10,9 @@ export const MESSAGE_TYPES = {
   // Transcription
   TRANSCRIPTION_EVENT: "transcription-event",
 
+  // Connection lifecycle (reconnect indication on long calls)
+  CONNECTION_STATUS: "connection-status",
+
   // Panel control
   TOGGLE_PANEL_VISIBILITY: "toggle-panel-visibility",
   TOGGLE_PANEL_REQUEST: "toggle-panel-request",

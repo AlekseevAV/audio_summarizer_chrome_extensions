@@ -1,15 +1,20 @@
 import { MESSAGE_TYPES, MESSAGE_SOURCES } from "../shared/message-types.js";
 import { log, error } from "./logger.js";
 
-// WebSocket connection - wait for open before returning
-export async function connectWebSocket(tabId, apiKey, model, onStopRecording) {
+// Connect to the OpenAI Realtime transcription socket. Resolves with the open
+// WebSocket once the session is configured, or rejects if it closes before
+// opening. `onClose` is invoked only for closes that happen AFTER a successful
+// open (steady-state drops), so the caller can decide whether to reconnect.
+export async function connectWebSocket(tabId, apiKey, model, onClose) {
   return new Promise((resolve, reject) => {
+    let opened = false;
     const ws = new WebSocket(
       "wss://api.openai.com/v1/realtime?intent=transcription",
       ["realtime", "openai-insecure-api-key." + apiKey],
     );
 
     ws.onopen = () => {
+      opened = true;
       log("WebSocket connected");
 
       // Configure session for transcription
@@ -54,25 +59,19 @@ export async function connectWebSocket(tabId, apiKey, model, onStopRecording) {
       });
     };
 
+    // Just log errors; the authoritative decision (reject / reconnect) is made
+    // in onclose, which always follows onerror.
     ws.onerror = (e) => {
       error("WebSocket error:", e);
-      chrome.runtime.sendMessage({
-        source: MESSAGE_SOURCES.OFFSCREEN,
-        type: MESSAGE_TYPES.ERROR,
-        tabId,
-        error: { message: "WebSocket error" },
-      });
-      onStopRecording("ws-error");
-      reject(e);
     };
 
     ws.onclose = (event) => {
       log("WebSocket closed", event?.code, event?.reason);
-      // Unexpected close (network drop, server-initiated close, auth failure
-      // after open): make sure recording is torn down so it does not keep
-      // running silently. stopRecordingInternal is a no-op once the session is
-      // already cleared (our own stop path), so this is safe against recursion.
-      onStopRecording("ws-closed");
+      if (!opened) {
+        reject(new Error(`WebSocket closed before open (code ${event?.code})`));
+        return;
+      }
+      onClose?.(event);
     };
   });
 }

@@ -8,6 +8,53 @@ import { log, error } from "./logger.js";
 import { connectWebSocket } from "./websocket.js";
 import { startPCMStreaming } from "./audio.js";
 
+const MAX_RECONNECT_ATTEMPTS = 6;
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_MAX_MS = 10000;
+
+// Serialize start/stop so overlapping messages (e.g. a tab switch sending STOP
+// then START) can never run two pipelines concurrently and leak resources.
+let opChain = Promise.resolve();
+function enqueue(task) {
+  const result = opChain.then(task, task);
+  // Keep the chain alive regardless of individual task outcome.
+  opChain = result.then(
+    () => {},
+    () => {},
+  );
+  return result;
+}
+
+export function startRecording(message) {
+  return enqueue(() => doStart(message));
+}
+
+export function stopRecordingInternal(reason) {
+  return enqueue(() => doStop(reason));
+}
+
+// --- Notifications -------------------------------------------------------
+
+function notifyError(tabId, message) {
+  chrome.runtime.sendMessage({
+    source: MESSAGE_SOURCES.OFFSCREEN,
+    type: MESSAGE_TYPES.ERROR,
+    tabId,
+    error: { message },
+  });
+}
+
+function notifyConnectionStatus(tabId, state, attempt) {
+  chrome.runtime.sendMessage({
+    source: MESSAGE_SOURCES.OFFSCREEN,
+    type: MESSAGE_TYPES.CONNECTION_STATUS,
+    tabId,
+    payload: { state, attempt },
+  });
+}
+
+// --- Teardown ------------------------------------------------------------
+
 // Tear down a set of audio resources. Safe to call with partially-created
 // resources - every field is optional and guarded. Never throws, never blocks
 // (AudioContext.close() is fire-and-forget so callers never wait on it).
@@ -20,7 +67,10 @@ function teardownResources(resources) {
     micStream,
     combinedStream,
     workletNode,
+    reconnectTimer,
   } = resources;
+
+  if (reconnectTimer) clearTimeout(reconnectTimer);
 
   // Stop feeding the graph first: detach the worklet handler and disconnect,
   // so no stray PCM is produced once we start closing things.
@@ -62,16 +112,92 @@ function teardownResources(resources) {
   monitorContext?.close().catch(() => {});
 }
 
-// Start recording
-export async function startRecording({ tabId, streamId, apiKey, model }) {
-  // If something is already running, stop first
+// --- Reconnect -----------------------------------------------------------
+
+// Called when a socket that was previously open closes unexpectedly. Only the
+// active session's socket matters; stale/intentional closes are ignored.
+function onSocketClosed(closedWs) {
+  if (!currentSession || currentSession.ws !== closedWs) return;
+  scheduleReconnect();
+}
+
+function scheduleReconnect() {
+  const session = currentSession;
+  if (!session) return;
+
+  if (session.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (session.stopping) return;
+    session.stopping = true;
+    error("Reconnect failed after max attempts");
+    notifyError(session.tabId, "Connection lost - recording stopped");
+    // Stop via the queue so it serializes with any pending start/stop.
+    stopRecordingInternal("reconnect-failed");
+    return;
+  }
+
+  session.reconnectAttempts += 1;
+  const delay = Math.min(
+    RECONNECT_BASE_MS * 2 ** (session.reconnectAttempts - 1),
+    RECONNECT_MAX_MS,
+  );
+  notifyConnectionStatus(session.tabId, "reconnecting", session.reconnectAttempts);
+  log(
+    `Scheduling reconnect attempt ${session.reconnectAttempts} in ${delay}ms`,
+  );
+  session.reconnectTimer = setTimeout(() => doReconnect(session), delay);
+}
+
+async function doReconnect(session) {
+  session.reconnectTimer = null;
+  // Aborted if the session was stopped/replaced while we waited.
+  if (currentSession !== session) return;
+
+  try {
+    const ws = await connectWebSocket(
+      session.tabId,
+      session.apiKey,
+      session.model,
+      (event) => onSocketClosed(ws),
+    );
+
+    // Stopped during the (awaited) connect: discard the fresh socket.
+    if (currentSession !== session) {
+      try {
+        ws.close(1000, "stop");
+      } catch {}
+      return;
+    }
+
+    session.ws = ws;
+    session.reconnectAttempts = 0;
+    log("Reconnected");
+    notifyConnectionStatus(session.tabId, "reconnected");
+  } catch (e) {
+    error("Reconnect attempt failed:", e);
+    scheduleReconnect();
+  }
+}
+
+// --- Start / Stop --------------------------------------------------------
+
+async function doStart({ tabId, streamId, apiKey, model }) {
+  // Ignore duplicate starts for a tab that is already being recorded. Covers
+  // the "starting" window the background-level guard misses (a second START
+  // could otherwise tear down and reinitialize a healthy pipeline).
+  if (currentSession && currentSession.tabId === tabId) {
+    log("Already recording this tab, ignoring duplicate start");
+    return;
+  }
+
+  // A different tab is active - stop it first (inline: we are already in the
+  // op queue, so calling the queued version would deadlock).
   if (currentSession) {
-    await stopRecordingInternal("new-session");
+    await doStop("new-session");
   }
 
   // Track resources as we create them so we can clean up even if we fail
   // before a session is established.
-  const resources = {};
+  const resources = { reconnectAttempts: 0, reconnectTimer: null };
 
   try {
     // 1. Get tab audio stream using provided streamId
@@ -161,20 +287,23 @@ export async function startRecording({ tabId, streamId, apiKey, model }) {
       tabId,
       apiKey,
       model || "gpt-4o-transcribe",
-      stopRecordingInternal,
+      (event) => onSocketClosed(ws),
     );
     resources.ws = ws;
 
-    // 6. Start PCM streaming
+    // 6. Start PCM streaming. The sender resolves the live socket per chunk so
+    // reconnects retarget the stream without rebuilding the audio graph.
     const workletNode = await startPCMStreaming(
       audioContext,
       combinedStream,
-      ws,
+      () => currentSession?.ws,
     );
     resources.workletNode = workletNode;
 
     setCurrentSession({
       tabId,
+      apiKey,
+      model: model || "gpt-4o-transcribe",
       ws,
       audioContext,
       monitorContext,
@@ -182,6 +311,8 @@ export async function startRecording({ tabId, streamId, apiKey, model }) {
       micStream,
       combinedStream,
       workletNode,
+      reconnectAttempts: 0,
+      reconnectTimer: null,
     });
 
     chrome.runtime.sendMessage({
@@ -191,25 +322,19 @@ export async function startRecording({ tabId, streamId, apiKey, model }) {
     });
   } catch (e) {
     error("Failed to start recording:", e);
-    chrome.runtime.sendMessage({
-      source: MESSAGE_SOURCES.OFFSCREEN,
-      type: MESSAGE_TYPES.ERROR,
-      tabId,
-      error: { message: e.message },
-    });
+    notifyError(tabId, e.message);
     // Clean up whatever we managed to create. The session was never set, so
-    // stopRecordingInternal would no-op here - tear down resources directly.
+    // doStop would no-op here - tear down resources directly.
     teardownResources(resources);
   }
 }
 
-// Stop recording
-export async function stopRecordingInternal(reason) {
+async function doStop(reason) {
   if (!currentSession) return;
   const session = currentSession;
 
   // Clear the session first so any re-entrant calls (e.g. ws.onclose firing
-  // after we close the socket) become no-ops.
+  // after we close the socket) become no-ops and no reconnect is scheduled.
   clearCurrentSession();
 
   // Notify listeners BEFORE tearing down audio. AudioContext.close() can stall,

@@ -94,6 +94,17 @@ export function setupWindowMessageListener() {
           handleWebSocketEvent(payload);
           break;
 
+        case MESSAGE_TYPES.CONNECTION_STATUS:
+          if (payload?.state === "reconnecting") {
+            setRecordingStatus(
+              `🔁 Reconnecting${payload.attempt ? ` (${payload.attempt})` : ""}...`,
+              "processing",
+            );
+          } else if (payload?.state === "reconnected") {
+            setRecordingStatus("⏺️ Recording...", "recording");
+          }
+          break;
+
         default:
           log("Unknown background message type:", type);
       }

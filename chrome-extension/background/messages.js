@@ -136,6 +136,16 @@ function handleOffscreenMessage(message) {
         payload: message.payload,
       });
       break;
+    case MESSAGE_TYPES.CONNECTION_STATUS:
+      // Background -> Panel
+      chrome.tabs.sendMessage(message.tabId, {
+        source: MESSAGE_SOURCES.BACKGROUND,
+        target: MESSAGE_TARGETS.PANEL,
+        type: MESSAGE_TYPES.CONNECTION_STATUS,
+        tabId: message.tabId,
+        payload: message.payload,
+      });
+      break;
     case MESSAGE_TYPES.ERROR:
       // An error (e.g. failed start) leaves no active session in offscreen, so
       // reset ours too - otherwise it gets stuck in "starting" and the
