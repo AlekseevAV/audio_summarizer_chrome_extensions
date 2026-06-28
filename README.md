@@ -37,6 +37,8 @@ Then you need to set up the following settings in the extension:
 
 - **OpenAI API Key**: You need to set up your OpenAI API key in the extension settings. You can get your API key from the [OpenAI website](https://platform.openai.com/signup). The same key is used for both transcription and summarization.
 - **Transcription Model**: You can choose the transcription model in the extension settings (defaults to `gpt-4o-transcribe`).
+- **Summary Model**: You can set the model used for summarization (leave empty to use the built-in default).
+- **Summary System Prompt**: You can override the system instructions for the summarizer (leave empty to use the built-in default).
 - Summarization Prompt: You can set up your own summarization prompt in the extension settings. The default prompt is "Summarize the following text in a few bullet points".
 
 Example of the prompt:

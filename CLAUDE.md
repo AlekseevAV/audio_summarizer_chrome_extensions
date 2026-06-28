@@ -123,8 +123,12 @@ content acts as the bridge: it relays background <-> panel.
 - `openai_token` - OpenAI key (used for both Realtime transcription and summaries).
 - `summary_prompt` - user summary prompt.
 - `transcription_model` - transcription model (default in code is `gpt-4o-transcribe`).
+- `summary_model` - Chat Completions model for summaries (empty -> default).
+- `summary_system_prompt` - system prompt for the summarizer (empty -> default).
 
-Edited on `options.html` (`options.js`).
+Edited on `options.html` (`options.js`). Defaults live in `shared/defaults.js`
+(imported by the bundled `panel/ui.js`; `options.js` is not bundled, so it treats
+an empty value as "use the default").
 
 ## Manifest (key points)
 
@@ -139,8 +143,8 @@ Edited on `options.html` (`options.js`).
   when they change. The most fragile part of the project.
 - **`pcm-processor.js`** must not be bundled - it is loaded as a separate AudioWorklet module by URL.
 - **Microphone** in offscreen is picked by the "default" label - may not be found on some machines.
-- The summary model is hardcoded in `panel/ui.js`; the transcription model is
-  configurable in settings with a `gpt-4o-transcribe` default in `offscreen/recording.js`.
+- Model/prompt defaults live in `shared/defaults.js`; transcription model default
+  (`gpt-4o-transcribe`) is in `offscreen/recording.js`. All are overridable in settings.
 
 ## Conventions
 

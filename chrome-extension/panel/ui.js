@@ -1,5 +1,10 @@
 import { log, error } from "./logger.js";
 import {
+  DEFAULT_SUMMARY_MODEL,
+  DEFAULT_SUMMARY_SYSTEM_PROMPT,
+  DEFAULT_SUMMARY_PROMPT,
+} from "../shared/defaults.js";
+import {
   currentTabId,
   isRecording,
   isActivated,
@@ -32,9 +37,7 @@ const callParticipantsEl = document.getElementById("call-participants");
 
 export async function initUI() {
   const settings = await chrome.storage.sync.get(["summary_prompt"]);
-  const defaultPrompt =
-    settings.summary_prompt ||
-    "Make a concise structured summary of this transcription.";
+  const defaultPrompt = settings.summary_prompt || DEFAULT_SUMMARY_PROMPT;
   if (promptTextarea) {
     promptTextarea.value = defaultPrompt;
   }
@@ -137,14 +140,22 @@ export async function initUI() {
 
     if (!transcript.trim() || !userPrompt) return;
 
-    // Get API key from storage
-    const settings = await chrome.storage.sync.get(["openai_token"]);
+    // Get API key and summary settings from storage
+    const settings = await chrome.storage.sync.get([
+      "openai_token",
+      "summary_model",
+      "summary_system_prompt",
+    ]);
     const apiKey = settings.openai_token;
 
     if (!apiKey) {
       promptResultTextarea.value = "⚠️ API key not configured";
       return;
     }
+
+    const model = settings.summary_model || DEFAULT_SUMMARY_MODEL;
+    const systemPrompt =
+      settings.summary_system_prompt || DEFAULT_SUMMARY_SYSTEM_PROMPT;
 
     if (promptResultTextarea) {
       promptResultTextarea.value = "⏳ Waiting for response...";
@@ -158,21 +169,11 @@ export async function initUI() {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-5.2-2025-12-11",
+          model,
           messages: [
             {
               role: "system",
-              content: `
-You are a senior product and engineering manager.
-Your task is to create a concise, structured meeting summary
-that is suitable for stakeholders who were not present.
-
-The summary must:
-- Be readable in under 3 minutes
-- Focus on outcomes, not discussion flow
-- Clearly separate facts, interpretations, decisions, and actions
-- Avoid emotions, dialogue, and personal remarks
-- Explicitly mark uncertainty and open questions`,
+              content: systemPrompt,
             },
             {
               role: "user",
