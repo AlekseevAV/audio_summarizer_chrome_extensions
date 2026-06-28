@@ -7,6 +7,7 @@ import {
 import { log, error } from "./logger.js";
 import { connectWebSocket } from "./websocket.js";
 import { startPCMStreaming } from "./audio.js";
+import { createSerialQueue } from "../shared/serial-queue.js";
 
 const MAX_RECONNECT_ATTEMPTS = 6;
 const RECONNECT_BASE_MS = 1000;
@@ -14,16 +15,7 @@ const RECONNECT_MAX_MS = 10000;
 
 // Serialize start/stop so overlapping messages (e.g. a tab switch sending STOP
 // then START) can never run two pipelines concurrently and leak resources.
-let opChain = Promise.resolve();
-function enqueue(task) {
-  const result = opChain.then(task, task);
-  // Keep the chain alive regardless of individual task outcome.
-  opChain = result.then(
-    () => {},
-    () => {},
-  );
-  return result;
-}
+const enqueue = createSerialQueue();
 
 export function startRecording(message) {
   return enqueue(() => doStart(message));

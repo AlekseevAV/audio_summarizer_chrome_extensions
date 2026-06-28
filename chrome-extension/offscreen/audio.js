@@ -36,7 +36,7 @@ export async function startPCMStreaming(audioContext, combinedStream, getSocket)
   return workletNode;
 }
 
-function floatTo16BitPCM(float32Array) {
+export function floatTo16BitPCM(float32Array) {
   const result = new Int16Array(float32Array.length);
   for (let i = 0; i < float32Array.length; i++) {
     let s = Math.max(-1, Math.min(1, float32Array[i]));
@@ -45,7 +45,7 @@ function floatTo16BitPCM(float32Array) {
   return result;
 }
 
-function arrayBufferToBase64(buffer) {
+export function arrayBufferToBase64(buffer) {
   const uint8 = new Uint8Array(buffer);
   let binary = "";
   for (let i = 0; i < uint8.length; i++) {

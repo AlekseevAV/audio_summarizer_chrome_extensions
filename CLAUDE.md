@@ -11,14 +11,25 @@ description, participants, time), shows a panel inside an iframe, and can produc
 a summary via Chat Completions and save the result as Markdown (the format targets
 Obsidian: frontmatter + `[[wiki-links]]`).
 
-## Build
+## Commands (use the Makefile)
 
-- `npm run build` -> bundles via esbuild into `dist/` (4 entry points, IIFE format).
-- `npm run watch` -> rebuild on change + copy static assets.
-- Bundler: `build.js`. Load the `dist/` folder into Chrome (Load unpacked).
-- `dist/` is a build artifact, do not edit by hand. Sources live in `chrome-extension/`.
+Always use `make`; the npm scripts are the implementation detail behind it.
 
-Entry points (see `build.js`): `background`, `content`, `panel`, `offscreen`.
+- `make build` -> bundle via esbuild into `dist/` (4 entry points, IIFE format).
+- `make watch` -> rebuild on change + copy static assets.
+- `make test` -> run the unit suite (Node built-in runner, `test/*.test.js`).
+- `make clean` -> remove `dist/`.
+- `make install` -> install deps.
+
+IMPORTANT: after changing any code, run `make test` (and `make build` if you
+touched bundled sources) before considering the change done. When you add or
+change pure logic, add/update a test under `test/`.
+
+The package is ESM (`"type": "module"`); the build script is therefore named
+`build.cjs` (CommonJS). Load the `dist/` folder into Chrome (Load unpacked).
+`dist/` is a build artifact, do not edit by hand. Sources live in `chrome-extension/`.
+
+Entry points (see `build.cjs`): `background`, `content`, `panel`, `offscreen`.
 Each is bundled from `chrome-extension/<context>/<context>.js`.
 
 Static files copied as-is (NOT bundled):
@@ -99,11 +110,18 @@ Loaded as an iframe inside the Meet page with `tabId` in the URL.
 - `state.js` - `isRecording`, `isActivated`, `callMetadata`, `segmentTimes` (item_id -> timings).
 - `panel.html` / `panel.css` - panel markup and styles.
 
-### `shared/message-types.js`
-Single source of truth for message types: `MESSAGE_TYPES`, `MESSAGE_SOURCES`,
-`MESSAGE_TARGETS`. Used across all contexts. Adding a new message -> edit here.
-`CONNECTION_STATUS` (offscreen -> background -> panel) reports reconnect state
-(`reconnecting`/`reconnected`) so the panel can show it without flipping `isRecording`.
+### `shared/` - cross-context modules (mostly pure, unit-tested)
+- `message-types.js` - single source of truth for message types: `MESSAGE_TYPES`,
+  `MESSAGE_SOURCES`, `MESSAGE_TARGETS`. Adding a new message -> edit here.
+  `CONNECTION_STATUS` (offscreen -> background -> panel) reports reconnect state
+  (`reconnecting`/`reconnected`) so the panel can show it without flipping `isRecording`.
+- `defaults.js` - default summary model / system prompt / prompt.
+- `format.js` - pure formatters: `msToTimestamp`, `buildMeetingMarkdown` (the
+  Obsidian frontmatter builder; `now` is injectable for deterministic tests).
+- `serial-queue.js` - `createSerialQueue()`, the generic mutex used by
+  `offscreen/recording.js` to serialize start/stop.
+
+Pure logic lives in `shared/` precisely so it can be unit tested without DOM/chrome.
 
 ## Data flow (record -> result)
 
@@ -162,5 +180,7 @@ an empty value as "use the default").
 - ES modules, bundled by esbuild into IIFE. Imports use the `.js` extension.
 - Each context has its own `logger.js` with a context prefix (`[background]`, etc.).
 - State is isolated per context in `state.js` via let-variables + setters.
-- The project has no tests.
+- Tests: Node built-in runner, files in `test/*.test.js`, run via `make test`.
+  Only pure modules are covered (browser/chrome-bound code is not unit tested);
+  to test new logic, keep it pure and put it in `shared/`.
 - In text, do not use the em dash, only the hyphen.

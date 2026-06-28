@@ -20,6 +20,7 @@ import {
   setLivePreviewUIText,
 } from "./ui.js";
 import { log, warn, error, debug } from "./logger.js";
+import { msToTimestamp } from "../shared/format.js";
 
 export function notifyParentTooltip(isVisible) {
   try {
@@ -223,6 +224,7 @@ function handleTranscriptionCompleted(event) {
 }
 
 // Transcription delta
+// (timestamp formatting lives in shared/format.js)
 function handleTranscriptionDelta(event) {
   const chunk = event.delta || "";
   if (!chunk) return;
@@ -232,17 +234,4 @@ function handleTranscriptionDelta(event) {
   setLivePreviewText(newText);
   setLivePreviewUIText(newText);
   setRecordingStatus("🎙️ Speaking...", "speaking");
-}
-
-// Timestamp conversion
-export function msToTimestamp(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  const hh = String(hours).padStart(2, "0");
-  const mm = String(minutes).padStart(2, "0");
-  const ss = String(seconds).padStart(2, "0");
-  return `${hh}:${mm}:${ss}`;
 }

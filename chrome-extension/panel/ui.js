@@ -4,6 +4,7 @@ import {
   DEFAULT_SUMMARY_SYSTEM_PROMPT,
   DEFAULT_SUMMARY_PROMPT,
 } from "../shared/defaults.js";
+import { buildMeetingMarkdown } from "../shared/format.js";
 import {
   currentTabId,
   isRecording,
@@ -297,41 +298,12 @@ export function setCallMetadataUI(data) {
     data.participants?.map((p) => p.name).join(", ") || "N/A";
 }
 
-// Meeting data formatting
+// Meeting data formatting. The pure builder lives in shared/format.js; here we
+// only feed it the current DOM values.
 export function getMeetingDataAsText() {
-  let title =
-    callMetadata?.title ||
-    `Meeting ${callMetadata?.time || new Date().toLocaleDateString()}`;
-
-  let participantsText = "";
-  if (callMetadata?.participants && callMetadata.participants.length > 0) {
-    participantsText = "\n";
-    callMetadata.participants.forEach((p) => {
-      participantsText += `  - "[[${p.name}]]"\n`;
-    });
-  }
-
-  // Use the meeting start time if available, otherwise fall back to now.
-  const startDate = callMetadata?.timeStart
-    ? new Date(callMetadata.timeStart)
-    : new Date();
-  const dateText = isNaN(startDate.getTime())
-    ? new Date().toISOString().slice(0, 19)
-    : startDate.toISOString().slice(0, 19);
-
-  return `---
-title: "${title}"
-date: ${dateText}
-participants: ${participantsText}
-location: "${callMetadata?.location || ""}"
-description: "${callMetadata?.description || ""}"
-tags:
-  - meeting
----
-
-${promptResultTextarea?.value || ""}
-
-Transcription Timeline:
-${timelineTextarea?.value || ""}
-`;
+  return buildMeetingMarkdown({
+    callMetadata,
+    summary: promptResultTextarea?.value || "",
+    timeline: timelineTextarea?.value || "",
+  });
 }
