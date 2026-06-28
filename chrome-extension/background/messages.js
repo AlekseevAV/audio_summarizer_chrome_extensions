@@ -137,6 +137,12 @@ function handleOffscreenMessage(message) {
       });
       break;
     case MESSAGE_TYPES.ERROR:
+      // An error (e.g. failed start) leaves no active session in offscreen, so
+      // reset ours too - otherwise it gets stuck in "starting" and the
+      // offscreen document is never closed.
+      if (activeSession && activeSession.tabId === message.tabId) {
+        clearActiveSession();
+      }
       // Background -> Panel
       chrome.tabs.sendMessage(message.tabId, {
         source: MESSAGE_SOURCES.BACKGROUND,
@@ -145,6 +151,7 @@ function handleOffscreenMessage(message) {
         tabId: message.tabId,
         error: message.error,
       });
+      closeOffscreenIfIdle();
       break;
   }
 }

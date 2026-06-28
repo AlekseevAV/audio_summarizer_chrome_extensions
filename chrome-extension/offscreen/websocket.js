@@ -66,8 +66,13 @@ export async function connectWebSocket(tabId, apiKey, model, onStopRecording) {
       reject(e);
     };
 
-    ws.onclose = () => {
-      log("WebSocket closed");
+    ws.onclose = (event) => {
+      log("WebSocket closed", event?.code, event?.reason);
+      // Unexpected close (network drop, server-initiated close, auth failure
+      // after open): make sure recording is torn down so it does not keep
+      // running silently. stopRecordingInternal is a no-op once the session is
+      // already cleared (our own stop path), so this is safe against recursion.
+      onStopRecording("ws-closed");
     };
   });
 }

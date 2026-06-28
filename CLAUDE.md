@@ -142,7 +142,8 @@ an empty value as "use the default").
   `content/observers.js`)** - tied to Google Meet's markup and aria-labels, breaks
   when they change. The most fragile part of the project.
 - **`pcm-processor.js`** must not be bundled - it is loaded as a separate AudioWorklet module by URL.
-- **Microphone** in offscreen is picked by the "default" label - may not be found on some machines.
+- **Microphone** in offscreen is picked by `deviceId === "default"` with a label
+  substring fallback - may still not be found on some locales/machines.
 - Model/prompt defaults live in `shared/defaults.js`; transcription model default
   (`gpt-4o-transcribe`) is in `offscreen/recording.js`. All are overridable in settings.
 
