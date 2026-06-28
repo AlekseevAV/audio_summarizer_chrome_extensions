@@ -22,6 +22,9 @@ export const MESSAGE_TYPES = {
   ACTIVATION_GRANTED: "activation-granted",
   CALL_METADATA: "call-metadata",
 
+  // Unsaved-transcript guard (panel -> content drives window.beforeunload)
+  UNSAVED_STATE: "unsaved-state",
+
   // Content script events
   MIC_MUTE_CHANGE: "mic-mute-change",
   LEAVE_CALL: "leave-call",

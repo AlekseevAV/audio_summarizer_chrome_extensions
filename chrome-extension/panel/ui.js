@@ -10,10 +10,21 @@ import {
   isRecording,
   isActivated,
   callMetadata,
+  currentDraftId,
+  draftCreatedAt,
+  isDirty,
   setIsActivated,
+  setCurrentDraftId,
+  setDraftCreatedAt,
+  setIsDirty,
 } from "./state.js";
 import { startRecording, stopRecording } from "./recording.js";
-import { notifyParentTooltip, notifyParentVisibility } from "./messages.js";
+import {
+  notifyParentTooltip,
+  notifyParentVisibility,
+  notifyUnsavedState,
+} from "./messages.js";
+import { saveDraft, deleteDraft, listRecoverableDrafts } from "./drafts.js";
 
 // DOM elements
 const toggleButton = document.getElementById("transcription-toggle-button");
@@ -36,12 +47,19 @@ const callTitleEl = document.getElementById("call-title");
 const callTimeEl = document.getElementById("call-time");
 const callParticipantsEl = document.getElementById("call-participants");
 
+// Unsaved-transcript / recovery elements
+const unsavedIndicatorEl = document.getElementById("unsaved-indicator");
+const recoverySectionEl = document.getElementById("recovery-section");
+
 export async function initUI() {
   const settings = await chrome.storage.sync.get(["summary_prompt"]);
   const defaultPrompt = settings.summary_prompt || DEFAULT_SUMMARY_PROMPT;
   if (promptTextarea) {
     promptTextarea.value = defaultPrompt;
   }
+
+  // Offer recovery of any unsaved transcript from a previous session.
+  renderRecovery();
 
   // Toggle button shows/hides panel
   toggleButton?.addEventListener("click", () => {
@@ -80,6 +98,8 @@ export async function initUI() {
     const meetingText = getMeetingDataAsText();
     try {
       await navigator.clipboard.writeText(meetingText);
+      // Copying counts as exporting the transcript.
+      markTranscriptExported();
     } catch (e) {
       error("Clipboard error:", e);
     }
@@ -94,19 +114,9 @@ export async function initUI() {
       ? callMetadata.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()
       : "meeting";
     const fileName = `${meetingTime}-${meetingTitle}.md`;
-    const meetingText = getMeetingDataAsText();
 
-    const blob = new Blob([meetingText], {
-      type: "text/plain;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    triggerDownload(fileName, getMeetingDataAsText());
+    markTranscriptExported();
   });
 
   // Start/Stop Recording button
@@ -199,6 +209,8 @@ export async function initUI() {
       if (promptResultTextarea) {
         promptResultTextarea.value = text;
         promptResultTextarea.scrollTop = promptResultTextarea.scrollHeight;
+        // The generated summary is unsaved content too.
+        markTranscriptDirty();
       }
     } catch (e) {
       error("Request failed:", e);
@@ -284,6 +296,209 @@ export function appendToTimeline(line) {
     timelineTextarea.value = line;
   }
   timelineTextarea.scrollTop = timelineTextarea.scrollHeight;
+  // New transcript content -> unsaved.
+  markTranscriptDirty();
+}
+
+// --- Unsaved transcript / draft persistence ---------------------------------
+
+let persistTimer = null;
+let hasPersistedThisSession = false;
+let draftGeneration = 0;
+
+function schedulePersist() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistDraftNow();
+  }, 1000);
+}
+
+// Serialize Date fields to ISO strings so the storage round-trip is
+// deterministic regardless of how the backend serializes Date objects.
+function serializableCallMetadata(meta) {
+  if (!meta) return null;
+  const iso = (v) => {
+    if (!v) return undefined;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? undefined : d.toISOString();
+  };
+  return { ...meta, timeStart: iso(meta.timeStart), timeEnd: iso(meta.timeEnd) };
+}
+
+async function persistDraftNow() {
+  if (!currentDraftId) return;
+  const timeline = timelineTextarea?.value || "";
+  const summary = promptResultTextarea?.value || "";
+  if (!timeline.trim() && !summary.trim()) return;
+
+  const id = currentDraftId;
+  const gen = draftGeneration;
+  try {
+    await saveDraft({
+      id,
+      createdAt: draftCreatedAt || Date.now(),
+      updatedAt: Date.now(),
+      title: callMetadata?.title || null,
+      callMetadata: serializableCallMetadata(callMetadata),
+      timeline,
+      summary,
+    });
+    // If the transcript was exported while this write was in flight, undo it
+    // so the just-exported draft is not resurrected.
+    if (gen !== draftGeneration) {
+      await deleteDraft(id);
+    }
+  } catch (e) {
+    error("Failed to persist transcript draft:", e);
+  }
+}
+
+// Lazily create one draft id for the lifetime of this panel. The timeline
+// textarea accumulates continuously across start/stop, so a single draft (kept
+// updated) represents it - rather than a new draft per recording start.
+function ensureDraftSession() {
+  if (currentDraftId) return;
+  const id =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : String(Date.now());
+  setCurrentDraftId(id);
+  setDraftCreatedAt(Date.now());
+}
+
+// Mark the transcript as having unsaved content and persist it.
+export function markTranscriptDirty() {
+  ensureDraftSession();
+  setIsDirty(true);
+  updateUnsavedIndicator();
+  notifyUnsavedState(true);
+  // Persist the first change immediately so the beforeunload guard never
+  // promises data that is not yet in storage; debounce subsequent updates.
+  if (!hasPersistedThisSession) {
+    hasPersistedThisSession = true;
+    persistDraftNow();
+  } else {
+    schedulePersist();
+  }
+}
+
+// The transcript was exported (saved to file or copied) - clear the dirty
+// state and drop the persisted draft.
+export async function markTranscriptExported() {
+  setIsDirty(false);
+  updateUnsavedIndicator();
+  notifyUnsavedState(false);
+  draftGeneration += 1; // invalidate any in-flight persist
+  hasPersistedThisSession = false; // new content after this persists eagerly again
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  const id = currentDraftId;
+  if (id) {
+    try {
+      await deleteDraft(id);
+    } catch (e) {
+      error("Failed to delete transcript draft:", e);
+    }
+  }
+}
+
+function updateUnsavedIndicator() {
+  if (unsavedIndicatorEl) unsavedIndicatorEl.hidden = !isDirty;
+}
+
+function triggerDownload(fileName, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadDraft(draft) {
+  const text = buildMeetingMarkdown({
+    callMetadata: draft.callMetadata,
+    summary: draft.summary || "",
+    timeline: draft.timeline || "",
+  });
+  const safeTitle = (draft.title || "meeting")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .toLowerCase();
+  triggerDownload(`${safeTitle}.md`, text);
+}
+
+// Render the "recover unsaved transcript" section, if any drafts qualify.
+export async function renderRecovery() {
+  if (!recoverySectionEl) return;
+
+  let drafts = [];
+  try {
+    drafts = await listRecoverableDrafts(currentDraftId);
+  } catch (e) {
+    error("Failed to load recoverable drafts:", e);
+    return;
+  }
+
+  recoverySectionEl.replaceChildren();
+  if (!drafts.length) {
+    recoverySectionEl.hidden = true;
+    return;
+  }
+  recoverySectionEl.hidden = false;
+
+  const header = document.createElement("div");
+  header.className = "recovery-header";
+  header.textContent = "⚠ Unsaved transcript from a previous session";
+  recoverySectionEl.appendChild(header);
+
+  drafts.forEach((draft) => {
+    const item = document.createElement("div");
+    item.className = "recovery-item";
+
+    const label = document.createElement("span");
+    label.className = "recovery-item-label";
+    const when = new Date(draft.updatedAt || draft.createdAt || Date.now());
+    label.textContent = `${draft.title || "Meeting"} — ${when.toLocaleString()}`;
+    item.appendChild(label);
+
+    const dlBtn = document.createElement("button");
+    dlBtn.className = "recovery-btn";
+    dlBtn.textContent = "Download";
+    dlBtn.addEventListener("click", async () => {
+      downloadDraft(draft);
+      await deleteDraft(draft.id);
+      renderRecovery();
+    });
+    item.appendChild(dlBtn);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "recovery-btn";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", async () => {
+      await deleteDraft(draft.id);
+      renderRecovery();
+    });
+    item.appendChild(delBtn);
+
+    recoverySectionEl.appendChild(item);
+  });
+
+  if (drafts.length > 1) {
+    const delAll = document.createElement("button");
+    delAll.className = "recovery-btn recovery-btn-all";
+    delAll.textContent = "Delete all";
+    delAll.addEventListener("click", async () => {
+      for (const d of drafts) await deleteDraft(d.id);
+      renderRecovery();
+    });
+    recoverySectionEl.appendChild(delAll);
+  }
 }
 
 export function togglePanelVisibility() {

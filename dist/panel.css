@@ -354,3 +354,71 @@
   background: rgba(52, 168, 83, 0.2);
   border-left-color: #34a853;
 }
+
+/* Unsaved indicator (footer) */
+.unsaved-indicator {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fbbc04;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Recovery section (unsaved transcript from a previous session) */
+.recovery-section {
+  background: rgba(251, 188, 4, 0.12);
+  border: 1px solid rgba(251, 188, 4, 0.4);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recovery-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fdd663;
+}
+
+.recovery-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.recovery-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e8eaed;
+}
+
+.recovery-btn {
+  background: rgba(138, 180, 248, 0.2);
+  border: 1px solid rgba(138, 180, 248, 0.4);
+  color: #aecbfa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.recovery-btn:hover {
+  background: rgba(138, 180, 248, 0.3);
+}
+
+.recovery-btn-all {
+  align-self: flex-end;
+  color: #f28b82;
+  border-color: rgba(242, 139, 130, 0.4);
+  background: rgba(242, 139, 130, 0.15);
+}
+
+.recovery-btn-all:hover {
+  background: rgba(242, 139, 130, 0.25);
+}

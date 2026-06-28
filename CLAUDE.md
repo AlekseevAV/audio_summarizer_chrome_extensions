@@ -107,8 +107,19 @@ Loaded as an iframe inside the Meet page with `tabId` in the URL.
   `TRANSCRIPTION_EVENT`) and from content (metadata, activation). `handleWebSocketEvent`
   parses OpenAI Realtime events (speech_started/stopped, delta, completed) and
   builds the timeline with timecodes.
-- `state.js` - `isRecording`, `isActivated`, `callMetadata`, `segmentTimes` (item_id -> timings).
+- `state.js` - `isRecording`, `isActivated`, `callMetadata`, `segmentTimes` (item_id -> timings),
+  plus draft/unsaved tracking (`currentDraftId`, `isDirty`).
+- `drafts.js` - `chrome.storage.local` wrapper over `shared/transcript-store.js`
+  (per-draft keys, save/delete/list-recoverable).
 - `panel.html` / `panel.css` - panel markup and styles.
+
+Unsaved-transcript protection (panel + content): while there is unsaved
+transcript content the panel marks itself dirty, persists a draft to
+`chrome.storage.local` (debounced, first write eager), and tells the content
+script (`UNSAVED_STATE`) to arm a `window.beforeunload` guard (generic native
+dialog - text/buttons can't be customized). Save or Copy clears dirty and
+deletes the draft. On the next Meet load the panel offers recovery
+(Download/Delete) of orphaned drafts. Drafts are pruned by TTL (7d) and count (10).
 
 ### `shared/` - cross-context modules (mostly pure, unit-tested)
 - `message-types.js` - single source of truth for message types: `MESSAGE_TYPES`,
@@ -120,6 +131,10 @@ Loaded as an iframe inside the Meet page with `tabId` in the URL.
   Obsidian frontmatter builder; `now` is injectable for deterministic tests).
 - `serial-queue.js` - `createSerialQueue()`, the generic mutex used by
   `offscreen/recording.js` to serialize start/stop.
+- `transcript-store.js` - pure logic for persisted draft transcripts
+  (`upsert`/`remove`/`prune` by TTL+count / `recoverable`). Each draft is stored
+  under its own `draft_<id>` key (see `panel/drafts.js`) to avoid multi-tab
+  read-modify-write clobbering.
 
 Pure logic lives in `shared/` precisely so it can be unit tested without DOM/chrome.
 

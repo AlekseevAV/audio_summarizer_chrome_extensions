@@ -37,6 +37,23 @@ export function notifyParentTooltip(isVisible) {
   }
 }
 
+// Tell the content script whether there is an unsaved transcript, so it can
+// arm/disarm the window.beforeunload guard on the top-level Meet page.
+export function notifyUnsavedState(dirty) {
+  try {
+    window.parent?.postMessage(
+      {
+        source: MESSAGE_SOURCES.PANEL,
+        type: MESSAGE_TYPES.UNSAVED_STATE,
+        dirty: !!dirty,
+      },
+      "*",
+    );
+  } catch (e) {
+    error("Failed to notify parent unsaved state:", e);
+  }
+}
+
 // Notify parent about visibility so content script can resize iframe hit area
 export function notifyParentVisibility(isVisible) {
   try {

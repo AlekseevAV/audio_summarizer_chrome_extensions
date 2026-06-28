@@ -27,6 +27,9 @@
       </div>
 
       <div class="panel-content">
+        <!-- Recovery of an unsaved transcript from a previous session -->
+        <div id="recovery-section" class="recovery-section" hidden></div>
+
         <div id="call-metadata-display">
           <p>
             <strong>Meeting:</strong> <span id="call-title">Loading...</span>
@@ -62,6 +65,7 @@
 
       <div class="panel-footer">
         <span id="recording-status">⏺️ Recording...</span>
+        <span id="unsaved-indicator" class="unsaved-indicator" title="Transcript not saved" hidden>● unsaved</span>
         <span id="live-preview" class="live-preview"></span>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { MESSAGE_TYPES, MESSAGE_SOURCES, MESSAGE_TARGETS } from "../shared/messa
 import { panelIframe, setPanelActivated } from "./state.js";
 import { log } from "./logger.js";
 import { showActivationHint, hideActivationHint } from "./panel.js";
+import { setUnsavedGuard } from "./unload-guard.js";
 
 // Setup window message listener (for messages from panel iframe)
 export function setupWindowMessageListener() {
@@ -27,6 +28,11 @@ export function setupWindowMessageListener() {
       } else {
         hideActivationHint();
       }
+      return;
+    }
+
+    if (type === MESSAGE_TYPES.UNSAVED_STATE) {
+      setUnsavedGuard(!!event.data.dirty);
     }
   });
 }
