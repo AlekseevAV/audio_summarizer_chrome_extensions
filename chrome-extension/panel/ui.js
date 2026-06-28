@@ -309,9 +309,18 @@ export function getMeetingDataAsText() {
       participantsText += `  - "[[${p.name}]]"\n`;
     });
   }
+
+  // Use the meeting start time if available, otherwise fall back to now.
+  const startDate = callMetadata?.timeStart
+    ? new Date(callMetadata.timeStart)
+    : new Date();
+  const dateText = isNaN(startDate.getTime())
+    ? new Date().toISOString().slice(0, 19)
+    : startDate.toISOString().slice(0, 19);
+
   return `---
 title: "${title}"
-date: 2025-07-17T09:00:00
+date: ${dateText}
 participants: ${participantsText}
 location: "${callMetadata?.location || ""}"
 description: "${callMetadata?.description || ""}"

@@ -139,9 +139,8 @@ Edited on `options.html` (`options.js`).
   when they change. The most fragile part of the project.
 - **`pcm-processor.js`** must not be bundled - it is loaded as a separate AudioWorklet module by URL.
 - **Microphone** in offscreen is picked by the "default" label - may not be found on some machines.
-- In `getMeetingDataAsText` (`panel/ui.js`) the frontmatter date is partly hardcoded.
-- OpenAI models are hardcoded in places (summary in `panel/ui.js`, transcription
-  default in `offscreen/recording.js`), not only in settings.
+- The summary model is hardcoded in `panel/ui.js`; the transcription model is
+  configurable in settings with a `gpt-4o-transcribe` default in `offscreen/recording.js`.
 
 ## Conventions
 

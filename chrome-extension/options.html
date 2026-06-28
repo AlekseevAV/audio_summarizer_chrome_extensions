@@ -19,6 +19,13 @@
     <label for="openaiToken">OpenAI Token:</label>
     <input type="text" id="openaiToken" placeholder="sk-..." />
 
+    <label for="transcriptionModel">Transcription Model:</label>
+    <select id="transcriptionModel">
+      <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
+      <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe</option>
+      <option value="whisper-1">whisper-1</option>
+    </select>
+
     <label for="summaryPrompt">Summary Prompt:</label>
     <textarea id="summaryPrompt" style="height:400px" placeholder="e.g. Summarize this meeting..."></textarea>
 

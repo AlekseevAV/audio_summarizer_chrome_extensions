@@ -11,8 +11,8 @@ All the tools I found were either too expensive or not good enough with multilin
 
 ## 🚀 Features
 
-- Transcription: whisper AI model
-- Summarization: ChatGPT models
+- Transcription: OpenAI Realtime API (live streaming, `gpt-4o-transcribe` by default)
+- Summarization: OpenAI Chat Completions
 - gathering Google Meet call metadata (title, description, participants, time, location, etc)
 - Obsidian integration: the final file can be saved in the Obsidian vault with metadata
 
@@ -35,7 +35,8 @@ Then you need to set up the following settings in the extension:
 
 ![Chrome Extension Settings](./docs/assets/chrome-extension-settings.png)
 
-- **OpenAI API Key**: You need to set up your OpenAI API key in the extension settings. You can get your API key from the [OpenAI website](https://platform.openai.com/signup).
+- **OpenAI API Key**: You need to set up your OpenAI API key in the extension settings. You can get your API key from the [OpenAI website](https://platform.openai.com/signup). The same key is used for both transcription and summarization.
+- **Transcription Model**: You can choose the transcription model in the extension settings (defaults to `gpt-4o-transcribe`).
 - Summarization Prompt: You can set up your own summarization prompt in the extension settings. The default prompt is "Summarize the following text in a few bullet points".
 
 Example of the prompt:
