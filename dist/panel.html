@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Live transcription</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <!-- Floating toggle button -->
+    <button id="transcription-toggle-button" title="Toggle Transcription Panel">
+      ⚪
+      <span id="activation-tooltip">
+        Нажмите на иконку расширения в панели Chrome, чтобы активировать панель
+      </span>
+    </button>
+
+    <!-- Main panel (slides in from left) -->
+    <div id="live-transcription-panel">
+      <div class="panel-header">
+        <span class="panel-title">🎙️ Live Transcription</span>
+        <div class="panel-controls">
+          <button id="toggle-recording" title="Start/Stop Recording">⏺️</button>
+          <button id="copy-transcription" title="Copy">📋</button>
+          <button id="save-transcription" title="Save">💾</button>
+          <button id="close-panel" title="Close">×</button>
+        </div>
+      </div>
+
+      <div class="panel-content">
+        <div id="call-metadata-display">
+          <p>
+            <strong>Meeting:</strong> <span id="call-title">Loading...</span>
+          </p>
+
+          <p><strong>Time:</strong> <span id="call-time">Loading...</span></p>
+
+          <p>
+            <strong>Participants:</strong>
+            <span id="call-participants">Loading...</span>
+          </p>
+        </div>
+
+        <label for="transcription-timeline" class="panel-label"
+          >Transcript</label
+        >
+        <textarea
+          id="transcription-timeline"
+          class="panel-textarea"
+          spellcheck="false"
+        ></textarea>
+
+        <label for="prompt-text" class="panel-label">Prompt</label>
+        <textarea id="prompt-text" class="panel-textarea" spellcheck="false"></textarea>
+        <button id="run-prompt" class="panel-button">▶ Ask Model</button>
+        <label for="prompt-result" class="panel-label">Model response</label>
+        <textarea
+          id="prompt-result"
+          class="panel-textarea"
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <div class="panel-footer">
+        <span id="recording-status">⏺️ Recording...</span>
+        <span id="live-preview" class="live-preview"></span>
+      </div>
+    </div>
+
+    <script src="panel.js"></script>
+  </body>
+</html>

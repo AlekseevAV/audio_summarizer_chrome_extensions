@@ -27,7 +27,7 @@ You need to install the Chrome Extension.
 1. Open Chrome Extensions page: chrome://extensions/
 2. Enable Developer mode
 3. Click on Load unpacked
-4. Select the extension directory: chrome-extension
+4. Select the builded extension directory: dist
 
 ![Chrome Extension Installation](./docs/assets/chrome-extension-installation.gif)
 
@@ -43,39 +43,48 @@ Example of the prompt:
 ```markdown
 You are an assistant tasked with creating a **detailed** summary from meeting transcripts.
 The summary must be **comprehensive** and reflect **ALL key points**, including:
+
 - questions, ideas, decisions, plans, discussions, disagreements, and alternative proposals.
 - **Maximum level of detail**, avoiding generalizations.
 
 **Important requirements**:
+
 1. **DO NOT omit** even minor details of the discussion.
 2. Reflect **all contexts, even if they seem secondary**.
 3. **Avoid over-generalizing**, convey the **original meaning** of the statements.
 4. **Avoid** using phrases like "X said" or "Y proposed," since the transcript does not always make it clear
-who exactly expressed an opinion.
+   who exactly expressed an opinion.
 
 **Format: Markdown**
+
 - Tags should be in English (maximum 5).
 - Wrap key concepts, team names, and people in wiki-links: [[concept]].
 - Use line breaks for lines longer than 120 characters.
 
 ### **Format example**:
+
 #tag1 #tag2 #tag3
 
 # 📌 Context and Goal
+
 - Main discussion topics
-    - Detailed breakdown
+  - Detailed breakdown
 
 # 🔑 Key Topics
+
 ## Issue X
+
 - Different perspectives on the issue
 - Alternative solutions
 - Key arguments
 
 # ✅ Next Steps
+
 - What needs to be done
 - Who is responsible for each task
 
 # 🎯 Outcome
+
 - Meeting conclusions
 - Decisions made
 ```
@@ -100,6 +109,26 @@ After the call is finished, the following actions will be proceed:
 - you can modify all the fields and copy the final result to the clipboard or download it as a file
 
 ![Chrome Extension Usage](./docs/assets/chrome-extension-usage.gif)
+
+## Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Build extension:
+
+```bash
+npm run build
+```
+
+Watch mode (auto-rebuild on changes):
+
+```bash
+npm run watch
+```
 
 ### Obsidian Integration
 
