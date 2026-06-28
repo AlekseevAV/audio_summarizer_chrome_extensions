@@ -181,6 +181,14 @@ an empty value as "use the default").
 - Each context has its own `logger.js` with a context prefix (`[background]`, etc.).
 - State is isolated per context in `state.js` via let-variables + setters.
 - Tests: Node built-in runner, files in `test/*.test.js`, run via `make test`.
-  Only pure modules are covered (browser/chrome-bound code is not unit tested);
-  to test new logic, keep it pure and put it in `shared/`.
+  Three kinds, all without a real browser:
+  1. Pure-logic unit tests (`shared/` modules, PCM, time parsing).
+  2. Message-routing integration tests for `background/messages.js` via a fake
+     `chrome.*` (`test/helpers/chrome-mock.js`) - asserts START routing and the
+     STOPPED/STARTED/ERROR/TRANSCRIPTION/CONNECTION relays to the panel.
+  3. DOM-fixture tests for the Meet scrapers (`content/call-metadata.js`) using
+     jsdom against a snapshot of the Meet DOM shape.
+  Real-browser E2E (tabCapture / AudioWorklet / WebSocket / reconnect) is NOT
+  covered yet - it would need Playwright with fake media + a mock WS server.
+  To test new logic, prefer keeping it pure and putting it in `shared/`.
 - In text, do not use the em dash, only the hyphen.
